@@ -12,10 +12,11 @@ import module
 # ==============================================================================
 
 py.arg('--experiment_dir')
-py.arg('--batch_size', type=int, default=32)
+py.arg('--batch_size', type=int, default=1)
 test_args = py.args()
 args = py.args_from_yaml(py.join(test_args.experiment_dir, 'settings.yml'))
 args.__dict__.update(test_args.__dict__)
+size = (args.size_h,args.size_w)
 
 
 # ==============================================================================
@@ -25,14 +26,14 @@ args.__dict__.update(test_args.__dict__)
 # data
 A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testA'), '*.jpg')
 B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
-A_dataset_test = data.make_dataset(A_img_paths_test, args.batch_size, args.load_size, args.crop_size,
+A_dataset_test = data.make_dataset(A_img_paths_test, args.batch_size, size,
                                    training=False, drop_remainder=False, shuffle=False, repeat=1)
-B_dataset_test = data.make_dataset(B_img_paths_test, args.batch_size, args.load_size, args.crop_size,
+B_dataset_test = data.make_dataset(B_img_paths_test, args.batch_size, size,
                                    training=False, drop_remainder=False, shuffle=False, repeat=1)
 
 # model
-G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+G_A2B = module.ResnetGenerator(input_shape=(size[0],size[1],3))
+G_B2A = module.ResnetGenerator(input_shape=(size[0],size[1],3))
 
 # resotre
 tl.Checkpoint(dict(G_A2B=G_A2B, G_B2A=G_B2A), py.join(args.experiment_dir, 'checkpoints')).restore()

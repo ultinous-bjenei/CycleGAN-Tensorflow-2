@@ -105,7 +105,7 @@ def disk_image_batch_dataset(img_paths,
 
     def parse_fn(path, *label):
         img = tf.io.read_file(path)
-        img = tf.image.decode_png(img, 3)  # fix channels to 3
+        img = tf.image.decode_image(img, expand_animations=False)
         return (img,) + label
 
     if map_fn:  # fuse `map_fn` and `parse_fn`

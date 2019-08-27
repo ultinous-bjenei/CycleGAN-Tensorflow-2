@@ -2,3 +2,5 @@
 __pycache__/
 /datasets/
 /output/
+datasets
+output

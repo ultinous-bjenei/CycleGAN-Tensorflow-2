@@ -19,11 +19,11 @@ import module
 
 py.arg('--dataset', default='horse2zebra')
 py.arg('--datasets_dir', default='datasets')
-py.arg('--load_size', type=int, default=286)  # load image to this size
-py.arg('--crop_size', type=int, default=256)  # then crop to this size
+py.arg('--output_dir', default=None)
+py.arg('--size_h', type=int, default=480)
+py.arg('--size_w', type=int, default=640)
 py.arg('--batch_size', type=int, default=1)
 py.arg('--epochs', type=int, default=200)
-py.arg('--epoch_decay', type=int, default=100)  # epoch to start decaying learning rate
 py.arg('--lr', type=float, default=0.0002)
 py.arg('--beta_1', type=float, default=0.5)
 py.arg('--adversarial_loss_mode', default='lsgan', choices=['gan', 'hinge_v1', 'hinge_v2', 'lsgan', 'wgan'])
@@ -33,9 +33,15 @@ py.arg('--cycle_loss_weight', type=float, default=10.0)
 py.arg('--identity_loss_weight', type=float, default=0.1)
 py.arg('--pool_size', type=int, default=50)  # pool size to store fake samples
 args = py.args()
+size = (args.size_h,args.size_w)
+epoch_decay = args.epochs // 2 # epoch to start decaying learning rate
 
 # output_dir
-output_dir = py.join('output', args.dataset)
+if args.output_dir is None:
+    output_dir = py.join('output', args.dataset)
+else:
+    output_dir = py.join('output', args.output_dir)
+
 py.mkdir(output_dir)
 
 # save settings
@@ -48,32 +54,32 @@ py.args_to_yaml(py.join(output_dir, 'settings.yml'), args)
 
 A_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'trainA'), '*.jpg')
 B_img_paths = py.glob(py.join(args.datasets_dir, args.dataset, 'trainB'), '*.jpg')
-A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, args.load_size, args.crop_size, training=True, repeat=False)
+A_B_dataset, len_dataset = data.make_zip_dataset(A_img_paths, B_img_paths, args.batch_size, size, training=True, repeat=False)
 
 A2B_pool = data.ItemPool(args.pool_size)
 B2A_pool = data.ItemPool(args.pool_size)
 
 A_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testA'), '*.jpg')
 B_img_paths_test = py.glob(py.join(args.datasets_dir, args.dataset, 'testB'), '*.jpg')
-A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, args.load_size, args.crop_size, training=False, repeat=True)
+A_B_dataset_test, _ = data.make_zip_dataset(A_img_paths_test, B_img_paths_test, args.batch_size, size, training=False, repeat=True)
 
 
 # ==============================================================================
 # =                                   models                                   =
 # ==============================================================================
 
-G_A2B = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
-G_B2A = module.ResnetGenerator(input_shape=(args.crop_size, args.crop_size, 3))
+G_A2B = module.ResnetGenerator(input_shape=( size[0],size[1],3) )
+G_B2A = module.ResnetGenerator(input_shape=( size[0],size[1],3) )
 
-D_A = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
-D_B = module.ConvDiscriminator(input_shape=(args.crop_size, args.crop_size, 3))
+D_A = module.ConvDiscriminator(input_shape=( size[0],size[1],3) )
+D_B = module.ConvDiscriminator(input_shape=( size[0],size[1],3) )
 
 d_loss_fn, g_loss_fn = gan.get_adversarial_losses_fn(args.adversarial_loss_mode)
 cycle_loss_fn = tf.losses.MeanAbsoluteError()
 identity_loss_fn = tf.losses.MeanAbsoluteError()
 
-G_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
-D_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, args.epoch_decay * len_dataset)
+G_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, epoch_decay * len_dataset)
+D_lr_scheduler = module.LinearDecay(args.lr, args.epochs * len_dataset, epoch_decay * len_dataset)
 G_optimizer = keras.optimizers.Adam(learning_rate=G_lr_scheduler, beta_1=args.beta_1)
 D_optimizer = keras.optimizers.Adam(learning_rate=D_lr_scheduler, beta_1=args.beta_1)
 
