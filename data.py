@@ -3,15 +3,19 @@ import tensorflow as tf
 import tf2lib as tl
 
 
-def make_dataset(img_paths, batch_size, size, training, drop_remainder=True, shuffle=True, repeat=1):
+def make_dataset(img_paths, batch_size, size, training, drop_remainder=True, shuffle=True, repeat=1, greyscale=False):
     @tf.function
     def _map_fn(img):  # preprocessing
+        img = tf.image.rgb_to_hsv(img)
+        if greyscale:
+            img = img[...,2]
+
         img = tf.dtypes.cast(img,dtype=tf.float32)
         img = tf.image.resize_with_crop_or_pad(img, target_height=size[0], target_width=size[1])
         img = tf.clip_by_value(img, 0, 255) / 255.0  # or img = tl.minmax_norm(img)
         img = img * 2 - 1
-        return img
 
+        return img
 
     return tl.disk_image_batch_dataset(img_paths,
                                        batch_size,
@@ -20,49 +24,11 @@ def make_dataset(img_paths, batch_size, size, training, drop_remainder=True, shu
                                        shuffle=shuffle,
                                        repeat=repeat)
 
-def make_zip_dataset(A_img_paths, B_img_paths, batch_size, size, training, shuffle=True, repeat=False):
-    # zip two datasets aligned by the longer one
-    if repeat:
-        A_repeat = B_repeat = None  # cycle both
-    else:
-        if len(A_img_paths) >= len(B_img_paths):
-            A_repeat = 1
-            B_repeat = None  # cycle the shorter one
-        else:
-            A_repeat = None  # cycle the shorter one
-            B_repeat = 1
-
-    A_dataset = make_dataset(A_img_paths, batch_size, size, training, drop_remainder=True, shuffle=shuffle, repeat=A_repeat)
-    B_dataset = make_dataset(B_img_paths, batch_size, size, training, drop_remainder=True, shuffle=shuffle, repeat=B_repeat)
+def make_zip_dataset(img_paths, batch_size, size, training, shuffle=True, repeat=False):
+    A_dataset = make_dataset(img_paths, batch_size, size, training, drop_remainder=True, shuffle=shuffle, repeat=repeat, greyscale=True)
+    B_dataset = make_dataset(img_paths, batch_size, size, training, drop_remainder=True, shuffle=shuffle, repeat=repeat)
 
     A_B_dataset = tf.data.Dataset.zip((A_dataset, B_dataset))
-    len_dataset = max(len(A_img_paths), len(B_img_paths)) // batch_size
+    len_dataset = len(img_paths) // batch_size
 
     return A_B_dataset, len_dataset
-
-
-class ItemPool:
-
-    def __init__(self, pool_size=50):
-        self.pool_size = pool_size
-        self.items = []
-
-    def __call__(self, in_items):
-        # `in_items` should be a batch tensor
-
-        if self.pool_size == 0:
-            return in_items
-
-        out_items = []
-        for in_item in in_items:
-            if len(self.items) < self.pool_size:
-                self.items.append(in_item)
-                out_items.append(in_item)
-            else:
-                if np.random.rand() > 0.5:
-                    idx = np.random.randint(0, len(self.items))
-                    out_item, self.items[idx] = self.items[idx], in_item
-                    out_items.append(out_item)
-                else:
-                    out_items.append(in_item)
-        return tf.stack(out_items, axis=0)

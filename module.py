@@ -84,6 +84,7 @@ def ResnetGenerator(input_shape=(256, 256, 3),
     h = Pad([[0, 0], [3, 3], [3, 3], [0, 0]], mode='REFLECT')(h)
     h = keras.layers.Conv2D(output_channels, 7, padding='valid')(h)
     h = keras.layers.Activation('tanh')(h)
+    h = h[...,:2] + inputs[...,2]
 
     return keras.Model(inputs=inputs, outputs=h)
 
