@@ -217,7 +217,7 @@ with train_summary_writer.as_default():
                 A, B = next(test_iter)
                 A2B, B2A, A2B2A, B2A2B = sample(A, B)
                 img = im.immerge(np.concatenate([A, A2B, A2B2A, B, B2A, B2A2B], axis=0), n_rows=2)
-                im.imwrite(img, py.join(sample_dir, 'iter-%09d.jpg' % G_optimizer.iterations.numpy()))
+                im.imwrite(img, py.join(sample_dir, 'iter-%015d.jpg' % G_optimizer.iterations.numpy()))
 
         # save checkpoint
         checkpoint.save(ep)
